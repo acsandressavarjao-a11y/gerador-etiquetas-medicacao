@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b63ce">
+<title>Gerador de Etiquetas — Protótipo 2</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f6fa;color:#17202a;font-family:Arial,sans-serif}
+header{background:#0b63ce;color:#fff;padding:18px 16px;position:sticky;top:0;z-index:5}
+header h1{font-size:21px;margin:0 0 4px}header small{opacity:.9}
+main{max-width:900px;margin:auto;padding:14px}
+.card{background:#fff;border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 2px 10px #00000012}
+h2{font-size:18px;margin:0 0 12px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+label{font-weight:700;font-size:14px;display:block;margin:8px 0 5px}
+input,select,button,textarea{width:100%;padding:11px;border:1px solid #cbd3dc;border-radius:10px;font-size:16px;background:#fff}
+button{border:0;background:#0b63ce;color:#fff;font-weight:700;cursor:pointer}.secondary{background:#e9f1fb;color:#0b63ce}.danger{background:#fff0f0;color:#b42318;border:1px solid #f0b7b7}
+.med{border:1px solid #d7dee7;border-radius:14px;padding:14px;margin:12px 0;background:#fbfcfe}.med-title{display:flex;justify-content:space-between;gap:10px;align-items:center}.med-title strong{font-size:16px}
+.photo-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.photos{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.thumb{position:relative}.thumb img{width:105px;height:85px;object-fit:cover;border-radius:9px;border:1px solid #ddd}.thumb button{position:absolute;right:3px;top:3px;width:27px;height:27px;padding:0;border-radius:50%;background:#111c;color:#fff}
+.horarios{margin-top:8px;padding:10px;border-radius:10px;background:#eef5ff;color:#173a68}.checks{display:flex;flex-wrap:wrap;gap:7px}.chip{padding:8px 10px;background:#fff;border:1px solid #b9c8da;border-radius:20px}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#labels{display:grid;gap:10px}.labelcard{background:#fff;border:1px dashed #8c99a8;border-radius:8px;padding:10px;min-height:125px;font-size:12px;break-inside:avoid}.labelcard .name{font-size:14px;font-weight:800}.labelcard .drug{font-size:15px;font-weight:800;margin:7px 0}.muted{color:#667085;font-size:12px}
+@media(max-width:560px){.grid,.photo-actions,.actions{grid-template-columns:1fr}main{padding:10px}}
+@page{size:108mm auto;margin:0}
+@media print{
+  html,body{width:108mm;margin:0!important;padding:0!important;background:#fff!important}
+  header,.no-print{display:none!important}
+  main{width:108mm!important;max-width:none!important;margin:0!important;padding:0!important}
+  .card:not(#resultado){display:none!important}
+  #resultado{display:block!important;width:108mm!important;margin:0!important;padding:0!important;box-shadow:none!important}
+  #resultado h2,.muted.no-print{display:none!important}
+  #labels{display:grid!important;grid-template-columns:50.8mm 50.8mm!important;column-gap:2.5mm!important;row-gap:2mm!important;width:104.1mm!important;margin:0 auto!important;padding:0!important;align-items:start!important}
+  .labelcard{box-sizing:border-box!important;width:50.8mm!important;height:25.4mm!important;min-height:25.4mm!important;max-height:25.4mm!important;margin:0!important;padding:2mm!important;border:.25mm solid #222!important;border-radius:1.5mm!important;background:#fff!important;font-size:7.2pt!important;line-height:1.08!important;overflow:hidden!important;break-inside:avoid!important;page-break-inside:avoid!important}
+  .labelcard .name{font-size:7.6pt!important;font-weight:800!important;white-space:nowrap!important;overflow:hidden!important}
+  .labelcard .drug{font-size:8.4pt!important;font-weight:800!important;margin:1.3mm 0!important;white-space:nowrap!important;overflow:hidden!important}
+}
+</style>
+<style>
+.camera-panel{
+  margin-top:12px;
+  padding:10px;
+  background:#111;
+  border-radius:12px;
+  text-align:center;
+}
+.camera-panel video{
+  display:block;
+  width:100%;
+  max-height:55vh;
+  object-fit:contain;
+  background:#000;
+  border-radius:8px;
+}
+.camera-controls{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-top:8px;
+}
+@media(max-width:560px){
+  .camera-controls{grid-template-columns:1fr}
+}
+</style><script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script></head>
+<body>
+<header><h1>Gerador de Etiquetas de Medicação</h1><small>Protótipo 2 — conferência → horários → etiquetas</small></header>
+<main>
+
+<div class="card">
+<h2>1. Prescrição</h2>
+<p class="muted">As imagens ficam somente nesta sessão do navegador. Não são enviadas por este arquivo.</p>
+<div class="photo-actions no-print">
+  <button type="button" id="cameraBtn">📷 Tirar foto da prescrição</button>
+  <button type="button" class="secondary" id="galleryBtn">🖼️ Escolher fotos</button>
+</div>
+
+<!-- Câmera aberta dentro da página quando o navegador permitir acesso à câmera -->
+<div id="cameraPanel" class="camera-panel no-print" hidden>
+  <video id="cameraVideo" autoplay playsinline muted></video>
+  <div class="camera-controls">
+    <button type="button" id="captureBtn">📸 Capturar foto</button>
+    <button type="button" class="secondary" id="closeCameraBtn">Fechar câmera</button>
+  </div>
+  <div class="muted">A foto capturada fica somente nesta sessão.</div>
+</div>
+
+<input id="cameraInput" type="file" accept="image/*" capture="environment" hidden>
+<input id="galleryInput" type="file" accept="image/*" multiple hidden>
+
+<div id="photos" class="photos"></div>
+<div id="photoStatus" class="muted no-print" style="margin-top:8px">
+  Nenhuma foto adicionada.
+</div>
+<div class="no-print" style="margin-top:10px">
+  <button type="button" id="readPrescriptionBtn">🔎 Ler prescrição das fotos</button>
+  <div id="ocrStatus" class="muted" style="margin-top:7px"></div>
+</div>
+<div id="ocrText" class="no-print" style="display:none;margin-top:10px">
+  <label>Texto reconhecido — confira antes de cadastrar as medicações</label>
+  <textarea id="ocrOutput" rows="8" placeholder="O texto reconhecido aparecerá aqui."></textarea>
+</div>
+</div>
+
+<div class="card">
+<h2>2. Dados do paciente</h2>
+<div class="grid">
+<div><label>Quarto</label><input id="quarto" placeholder="Ex.: 12"></div>
+<div><label>Leito</label><input id="leito" placeholder="Ex.: 02"></div>
+</div>
+<label>Nome do paciente</label><input id="paciente" placeholder="Nome completo">
+</div>
+
+<div class="card">
+<div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+<h2 style="margin:0">3. Medicações</h2>
+<button type="button" id="addMed" style="width:auto;padding:10px 14px">＋ Adicionar medicação</button>
+</div>
+<div id="meds"></div>
+</div>
+
+<div class="card no-print">
+<h2>4. Conferência das etiquetas</h2>
+<div id="summary" class="muted">Adicione as medicações e preencha os dados.</div>
+<div id="scheduleSummary" style="margin-top:12px"></div>
+</div>
+
+<div class="card" id="resultado">
+<h2>5. Etiquetas geradas</h2><div class="muted no-print" style="margin:-6px 0 10px">Formato de referência SES: <b>50,8 × 25,4 mm (2 × 1 pol.)</b>, duas etiquetas lado a lado, com <b>2 mm</b> de separação entre elas.</div>
+<div id="labels"></div>
+<div class="actions no-print" style="margin-top:12px">
+<button type="button" id="printBtn">🖨️ Imprimir etiquetas</button>
+<button type="button" class="secondary" id="clearBtn">Limpar formulário</button>
+</div>
+</div>
+</main>
+
+<script>
+let meds=[], photos=[];
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function newMed(){
+ return {id:Date.now()+Math.random(),name:'',dose:'',unit:'mg',via:'Endovenosa (EV)',freq:'',manualFreq:'',
+         start:'',manualTimes:'',mode:'auto'};
+}
+function addMed(){meds.push(newMed());renderMeds();}
+function removeMed(id){meds=meds.filter(m=>m.id!==id);renderMeds();}
+function renderMeds(){
+ $('meds').innerHTML='';
+ meds.forEach((m,i)=>{
+ const el=document.createElement('div');el.className='med';
+ el.innerHTML=`
+ <div class="med-title"><strong>Medicação ${i+1}</strong>
+ <button type="button" class="danger no-print" style="width:auto;padding:7px 10px" data-del="${m.id}">Remover</button></div>
+ <label>Nome da medicação</label><input data-k="name" value="${esc(m.name)}" placeholder="Ex.: Oxacilina">
+ <div class="grid">
+ <div><label>Dose</label><input data-k="dose" value="${esc(m.dose)}" placeholder="Ex.: 2000"></div>
+ <div><label>Unidade</label><select data-k="unit">
+   ${['mg','mL','g','UI','mcg','comprimido','cápsula'].map(x=>`<option ${m.unit===x?'selected':''}>${x}</option>`).join('')}
+ </select></div></div>
+ <div class="grid">
+ <div><label>Via</label><select data-k="via">
+   ${['Endovenosa (EV)','Oral (VO)','Gotas','Intramuscular (IM)','Subcutânea (SC)','Outra'].map(x=>`<option ${m.via===x?'selected':''}>${x}</option>`).join('')}
+ </select></div>
+ <div><label>Frequência</label><select data-k="freq">
+   <option value="">Selecionar</option><option>4 x 4 h</option><option>6 x 6 h</option><option>8 x 8 h</option><option>12 x 12 h</option><option>1 vez ao dia</option><option>Se necessário</option><option>Manual</option>
+ </select></div></div>
+ <div data-manual></div>
+ <div data-times></div>`;
+ $('meds').appendChild(el);
+ el.querySelector('[data-k="freq"]').value=m.freq || '';
+ el.querySelectorAll('[data-k]').forEach(inp=>{
+   if(inp.closest('[data-times]')) return;
+   const sync=()=>{m[inp.dataset.k]=inp.value;updateMed(el,m)};
+   inp.addEventListener('input',sync);
+   inp.addEventListener('change',sync);
+ });
+ el.querySelector('[data-del]').onclick=()=>removeMed(m.id);
+ updateMed(el,m);
+ });
+ updateSummary();
+}
+function frequencyStep(freq){
+  const map={'4 x 4 h':4,'6 x 6 h':6,'8 x 8 h':8,'12 x 12 h':12};
+  return Object.prototype.hasOwnProperty.call(map,freq) ? map[freq] : null;
+}
+function calcAutomaticTimes(start,step){
+  if(!start || !step) return [];
+  const parts=String(start).split(':').map(Number);
+  const hh=parts[0], mm=parts[1];
+  if(!Number.isInteger(hh)||!Number.isInteger(mm)||hh<0||hh>23||mm<0||mm>59) return [];
+  const out=[];
+  for(let i=0;i<6;i++){
+    const total=(hh*60+mm+i*step*60)%(24*60);
+    out.push(String(Math.floor(total/60)).padStart(2,'0')+':'+String(total%60).padStart(2,'0'));
+  }
+  return out;
+}
+function updateMed(el,m){
+  const manual=el.querySelector('[data-manual]');
+  manual.innerHTML=m.freq==='Manual'
+    ? `<label>Frequência manual</label><input data-k="manualFreq" value="${esc(m.manualFreq||'')}" placeholder="Ex.: 3 vezes ao dia">`
+    : '';
+  if(m.freq==='Manual'){
+    manual.querySelector('input').addEventListener('input',e=>{m.manualFreq=e.target.value;updateSummary()});
+    manual.querySelector('input').addEventListener('change',e=>{m.manualFreq=e.target.value;updateSummary()});
+  }
+
+  const times=el.querySelector('[data-times]');
+  const freq=String(m.freq||'').trim();
+  const step=frequencyStep(freq);
+
+  if(step){
+    times.innerHTML=`
+      <label>Início da medicação</label>
+      <input type="time" data-start-time value="${esc(m.start||'')}">
+      <div class="horarios"></div>`;
+    const input=times.querySelector('[data-start-time]');
+    const apply=()=>{
+      m.start=input.value;
+      renderTimes(times,m,step);
+      updateSummary();
+    };
+    input.addEventListener('input',apply);
+    input.addEventListener('change',apply);
+    input.addEventListener('blur',apply);
+    renderTimes(times,m,step);
+  }else if(freq==='1 vez ao dia'){
+    times.innerHTML=`
+      <label>Horário</label>
+      <input type="time" data-start-time value="${esc(m.start||'')}">
+      <div class="horarios"></div>`;
+    const input=times.querySelector('[data-start-time]');
+    const apply=()=>{
+      m.start=input.value;
+      const h=times.querySelector('.horarios');
+      h.innerHTML=m.start
+        ? '<b>Horários para conferência:</b><div class="checks"><span class="chip">'+esc(m.start)+'</span></div>'
+        : '<span class="muted">Informe o horário.</span>';
+      updateSummary();
+    };
+    input.addEventListener('input',apply);
+    input.addEventListener('change',apply);
+    input.addEventListener('blur',apply);
+    apply();
+  }else if(freq==='Se necessário'){
+    times.innerHTML=`
+      <label>Horário(s) — opcional/manual</label>
+      <input data-manual-times value="${esc(m.manualTimes||'')}" placeholder="Ex.: 08:00, 14:00, 20:00">`;
+    const input=times.querySelector('[data-manual-times]');
+    const apply=()=>{m.manualTimes=input.value;updateSummary()};
+    input.addEventListener('input',apply); input.addEventListener('change',apply);
+  }else if(freq==='Manual'){
+    times.innerHTML=`
+      <label>Horários manuais (separados por vírgula)</label>
+      <input data-manual-times value="${esc(m.manualTimes||'')}" placeholder="Ex.: 06:00, 12:00, 18:00, 00:00">`;
+    const input=times.querySelector('[data-manual-times]');
+    const apply=()=>{m.manualTimes=input.value;updateSummary()};
+    input.addEventListener('input',apply); input.addEventListener('change',apply);
+  }else{
+    times.innerHTML='';
+  }
+  updateSummary();
+}
+function renderTimes(box,m,step){
+  const h=box.querySelector('.horarios');
+  if(!h)return;
+  const arr=calcAutomaticTimes(m.start,step);
+  if(!arr.length){
+    h.innerHTML='<b>Horários para conferência:</b><div class="muted">Informe o início da medicação para calcular automaticamente.</div>';
+    return;
+  }
+  h.innerHTML='<b>Horários para conferência:</b><div class="checks">'+arr.map(t=>`<span class="chip">${t}</span>`).join('')+'</div>';
+}
+function getTimes(m){
+  const freq=String(m.freq||'').trim();
+  const step=frequencyStep(freq);
+  if(step) return calcAutomaticTimes(m.start,step);
+  if(freq==='1 vez ao dia') return m.start?[m.start]:[];
+  return String(m.manualTimes||'').split(/[,;\n]+/).map(x=>x.trim()).filter(Boolean);
+}
+
+function updateSummary(){
+  let count=0;
+  meds.forEach(m=>count+=getTimes(m).length||1);
+  $('summary').innerHTML=`<b>${meds.length}</b> medicação(ões) cadastrada(s) • <b>${count}</b> etiqueta(s) previstas.`;
+  renderScheduleSummary();
+  renderLabels();
+}
+function renderScheduleSummary(){
+  const box=$('scheduleSummary');
+  if(!box)return;
+  if(!meds.length){box.innerHTML='';return;}
+  let rows='';
+  meds.forEach((m,i)=>{
+    const times=getTimes(m);
+    const freq=m.freq==='Manual'?m.manualFreq:m.freq;
+    const shown=times.length?times.join(' • '):(m.freq==='Se necessário'?'SE NECESSÁRIO':'—');
+    rows+=`<div style="border:1px solid #d7dee7;border-radius:10px;padding:10px;margin-top:8px;background:#fbfcfe">
+      <b>${i+1}. ${esc(m.name||'MEDICAÇÃO')}</b>
+      <div style="font-size:13px;margin-top:4px"><b>Frequência:</b> ${esc(freq||'—')}</div>
+      <div style="font-size:13px;margin-top:4px"><b>Horários para conferência:</b> ${esc(shown)}</div>
+    </div>`;
+  });
+  box.innerHTML=rows;
+}
+
+function renderLabels(){
+ const labels=$('labels');labels.innerHTML='';let total=0;
+ meds.forEach(m=>{
+   const times=getTimes(m); const arr=times.length?times:[m.freq==='Se necessário'?'SE NECESSÁRIO':''];
+   arr.forEach(t=>{
+    total++;let d=document.createElement('div');d.className='labelcard';
+    d.innerHTML=`<div><b>QUARTO:</b> ${esc($('quarto').value)} &nbsp; <b>LEITO:</b> ${esc($('leito').value)}</div>
+    <div class="name">${esc($('paciente').value)}</div>
+    <div class="drug">${esc(m.name||'MEDICAÇÃO')} — ${esc(m.dose)} ${esc(m.unit)}</div>
+    <div><b>VIA:</b> ${esc(m.via)} &nbsp; <b>FREQUÊNCIA:</b> ${esc(m.freq==='Manual'?m.manualFreq:m.freq)}</div>
+    <div><b>HORÁRIO:</b> ${esc(t)}</div>`;
+    labels.appendChild(d);
+   });
+ });
+ if(!total)labels.innerHTML='<span class="muted">Preencha pelo menos uma medicação.</span>';
+}
+function addPhotos(files){
+ [...files].forEach(f=>{if(!f.type.startsWith('image/'))return;photos.push({id:Date.now()+Math.random(),url:URL.createObjectURL(f)});});
+ renderPhotos();
+}
+function renderPhotos(){
+ $('photos').innerHTML=photos.map(p=>`<div class="thumb"><img src="${p.url}"><button type="button" onclick="removePhoto(${p.id})">×</button></div>`).join('');
+}
+function removePhoto(id){const p=photos.find(x=>x.id===id);if(p)URL.revokeObjectURL(p.url);photos=photos.filter(x=>x.id!==id);renderPhotos();}
+
+let cameraStream=null;
+
+function renderPhotos(){
+  $('photos').innerHTML=photos.map((p,i)=>`
+    <div class="thumb">
+      <img src="${p.url}" alt="Foto ${i+1} da prescrição">
+      <button type="button" onclick="removePhoto(${p.id})" aria-label="Remover foto">×</button>
+    </div>`).join('');
+  $('photoStatus').textContent = photos.length
+    ? `${photos.length} foto(s) adicionada(s). As imagens ficam somente nesta sessão.`
+    : 'Nenhuma foto adicionada.';
+}
+
+function addPhotos(files){
+  [...(files||[])].forEach(f=>{
+    if(!f.type.startsWith('image/')) return;
+    photos.push({
+      id:Date.now()+Math.random(),
+      url:URL.createObjectURL(f),
+      file:f
+    });
+  });
+  renderPhotos();
+}
+
+function removePhoto(id){
+  const p=photos.find(x=>x.id===id);
+  if(p) URL.revokeObjectURL(p.url);
+  photos=photos.filter(x=>x.id!==id);
+  renderPhotos();
+}
+
+async function openWebCamera(){
+  const panel=$('cameraPanel');
+  try{
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      throw new Error('getUserMedia indisponível');
+    }
+    cameraStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:'environment'}},
+      audio:false
+    });
+    $('cameraVideo').srcObject=cameraStream;
+    panel.hidden=false;
+    $('photoStatus').textContent='Câmera aberta. Enquadre a prescrição e toque em “Capturar foto”.';
+  }catch(err){
+    // Fallback: no Android/iPhone, o próprio navegador oferece a câmera
+    // quando o input com capture é acionado.
+    $('cameraInput').click();
+  }
+}
+
+function closeWebCamera(){
+  if(cameraStream){
+    cameraStream.getTracks().forEach(track=>track.stop());
+    cameraStream=null;
+  }
+  $('cameraVideo').srcObject=null;
+  $('cameraPanel').hidden=true;
+}
+
+$('cameraBtn').onclick=openWebCamera;
+$('closeCameraBtn').onclick=closeWebCamera;
+
+$('captureBtn').onclick=()=>{
+  const video=$('cameraVideo');
+  if(!video.videoWidth){
+    $('photoStatus').textContent='A câmera ainda não está pronta. Aguarde um instante.';
+    return;
+  }
+  const canvas=document.createElement('canvas');
+  canvas.width=video.videoWidth;
+  canvas.height=video.videoHeight;
+  canvas.getContext('2d').drawImage(video,0,0,canvas.width,canvas.height);
+  canvas.toBlob(blob=>{
+    if(!blob) return;
+    const file=new File(
+      [blob],
+      `prescricao_${photos.length+1}.jpg`,
+      {type:'image/jpeg'}
+    );
+    addPhotos([file]);
+    $('photoStatus').textContent=`${photos.length} foto(s) adicionada(s). Você pode tirar outra.`;
+  },'image/jpeg',0.92);
+};
+
+$('galleryBtn').onclick=()=>$('galleryInput').click();
+$('galleryInput').onchange=e=>{
+  addPhotos(e.target.files);
+  e.target.value='';
+};
+$('cameraInput').onchange=e=>{
+  addPhotos(e.target.files);
+  e.target.value='';
+};
+
+
+async function readPrescription(){
+  const status=$('ocrStatus');
+  const output=$('ocrOutput');
+  if(!photos.length){
+    status.textContent='Adicione pelo menos uma foto da prescrição.';
+    return;
+  }
+  if(typeof Tesseract==='undefined'){
+    status.textContent='O leitor ainda não carregou. Verifique a internet e tente novamente.';
+    return;
+  }
+  $('ocrText').style.display='block';
+  output.value='';
+  status.textContent='Preparando leitura...';
+  try{
+    const worker=await Tesseract.createWorker('por',1,{
+      logger:m=>{
+        if(m && typeof m.progress==='number'){
+          status.textContent=`Lendo prescrição... ${Math.round(m.progress*100)}%`;
+        }
+      }
+    });
+    const out=[];
+    for(let i=0;i<photos.length;i++){
+      status.textContent=`Lendo foto ${i+1} de ${photos.length}...`;
+      const result=await worker.recognize(photos[i].url);
+      out.push(`--- FOTO ${i+1} ---\n${result.data.text||''}`);
+    }
+    await worker.terminate();
+    output.value=out.join('\n\n');
+    status.textContent='Leitura concluída. Confira os dados antes de cadastrar as medicações.';
+  }catch(e){
+    console.error(e);
+    status.textContent='Não foi possível ler a prescrição. Preencha os dados manualmente.';
+  }
+}
+$('readPrescriptionBtn').onclick=readPrescription;
+
+$('addMed').onclick=addMed;
+['quarto','leito','paciente'].forEach(id=>$(id).addEventListener('input',renderLabels));$('printBtn').onclick=()=>window.print();
+$('clearBtn').onclick=()=>{
+  meds=[];
+  photos.forEach(p=>URL.revokeObjectURL(p.url));
+  photos=[];
+  closeWebCamera();
+  $('quarto').value='';
+  $('leito').value='';
+  $('paciente').value='';
+  addMed();
+  renderPhotos();
+};
+['quarto','leito','paciente'].forEach(id=>$(id).addEventListener('input',updateSummary));
+addMed();
+</script>
+</body>
+</html>
